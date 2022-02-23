@@ -1,6 +1,6 @@
 /*
   Project Name:   battery_check
-  Description:    Battery level for LiPo batteries
+  Description:    Read and display voltage, percentage charge, and temperature for LiPo batteries
 
   See README.md for target information and revision history
 */
@@ -12,6 +12,17 @@
 #include <Adafruit_SH110X.h>
 
 //#define DEBUG
+
+// Current version of Adafruit LC709203F library sets battery size (APA value) 
+// using a fixed, limited set of defined values enumerated in LC709203F.h.  
+// Select the one closest to the battery size being used
+
+// #define BATTERYSIZE LC709203F_APA_100MAH // 0x08
+// #define BATTERYSIZE LC709203F_APA_200MAH // 0x0B
+// #define BATTERYSIZE LC709203F_APA_500MAH  // 0x10
+// #define BATTERYSIZE LC709203F_APA_1000MAH // 0x19
+#define BATTERYSIZE LC709203F_APA_2000MAH // 0x2D
+// #define BATTERYSIZE LC709203F_APA_3000MAH // 0x36
 
 Adafruit_LC709203F lc;
 Adafruit_SH110X display = Adafruit_SH110X(64, 128, &Wire);
@@ -39,18 +50,7 @@ void setup()
   // lc.setThermistorB(3950);
   // Serial.print("Thermistor B = "); Serial.println(lc.getThermistorB());
 
-  // Current version of Adafruit LC709203F library sets battery size (APA value) 
-  // using a fixed, limited set of defined values enumerated in LC709203F.h.  
-  // Select the one closest to the battery size being used
-
-  // #define BATTERYSIZE LC709203F_APA_100MAH // 0x08
-  // #define BATTERYSIZE LC709203F_APA_200MAH // 0x0B
-  // #define BATTERYSIZE LC709203F_APA_500MAH  // 0x10
-  // #define BATTERYSIZE LC709203F_APA_1000MAH // 0x19
-  // #define BATTERYSIZE LC709203F_APA_2000MAH // 0x2D
-  // #define BATTERYSIZE LC709203F_APA_3000MAH // 0x36
-
-  lc.setPackSize(LC709203F_APA_2000MAH);
+  lc.setPackSize(BATTERYSIZE);
 
   //lc.setAlarmVoltage(3.8);
 
