@@ -49,6 +49,12 @@ hdweData hardwareData;
 Adafruit_LC709203F lc;
 Adafruit_SH1107 display = Adafruit_SH1107(64, 128, &Wire);
 
+//screen assist constants
+const int xMargins = 10;
+const int yMargins = 2;
+const int batteryBarWidth = 28;
+const int batteryBarHeight = 10;
+
 void setup() 
 {
   #ifdef DEBUG
@@ -88,7 +94,7 @@ void loop()
   // Adafruit recommended read of analog pin
   batteryReadVoltage_adafruit();
   display.println();
-  display.println("Adafruit optimized");
+  display.println("Adafruit");
   display.print(hardwareData.batteryVoltage, 2);
   display.print("V, ");
   display.print(hardwareData.batteryPercent,1);
@@ -97,11 +103,13 @@ void loop()
   // ESP32 optimized software read of analog pin
   batteryReadVoltage_esp32();
   display.println();
-  display.println("ESP32 optimized");
+  display.println("ESP32");
   display.print(hardwareData.batteryVoltage, 2);
-  display.print("V, ");
+  display.print("V,");
   display.print(hardwareData.batteryPercent,1);
   display.println("%");
+
+  screenHelperBatteryStatus((display.width()-xMargins-batteryBarWidth-3),(display.height()-yMargins-batteryBarHeight),batteryBarWidth, batteryBarHeight);
 
   display.display();
   delay(1000*60);  // LC709203F needs >=2 seconds between samples
@@ -175,4 +183,20 @@ void debugMessage(String messageText, int messageLevel)
       Serial.flush();  // Make sure the message gets output (before any sleeping...)
     }
   #endif
+}
+
+void screenHelperBatteryStatus(int initialX, int initialY, int barWidth, int barHeight)
+// helper function for screenXXX() routines that draws battery charge %
+{
+  // IMPROVEMENT : Screen dimension boundary checks for function parameters
+  if (hardwareData.batteryVoltage>0) 
+  {
+    // battery nub; width = 3pix, height = 60% of barHeight
+    display.fillRect((initialX+barWidth),(initialY+(int(barHeight/5))),3,(int(barHeight*3/5)),SH110X_WHITE);
+    // battery border
+    display.drawRect(initialX,initialY,barWidth,barHeight,SH110X_WHITE);
+    //battery percentage as rectangle fill, 1 pixel inset from the battery border
+    display.fillRect((initialX + 2),(initialY + 2),(int((hardwareData.batteryPercent/100)*barWidth) - 4),(barHeight - 4),SH110X_WHITE);
+    debugMessage(String("battery status drawn to screen as ") + hardwareData.batteryPercent + "%",2);
+  }
 }
