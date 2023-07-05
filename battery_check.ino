@@ -26,9 +26,7 @@
 // #define BATTERY_APA 0x36 // 3000mAH
 
 // used for reading battery voltage from analog PIN on applicable devices
-const float batteryMaxVoltage = 4.2;  // maximum battery voltage
-const float batteryMinVoltage = 3.2;  // what we regard as an empty battery
-// battery pin for Adafruit Feather M0 Express (part#3403)
+const int   batteryReads = 5;
 
 #if defined (ARDUINO_ADAFRUIT_FEATHER_ESP32_V2)
   #define VBATPIN A13
@@ -41,7 +39,7 @@ typedef struct
 {
   float batteryPercent;
   float batteryVoltage;
-  float batteryTemp;
+  float batteryTemperature;
 } hdweData;
 hdweData hardwareData;
 
@@ -55,22 +53,42 @@ const int yMargins = 2;
 const int batteryBarWidth = 28;
 const int batteryBarHeight = 10;
 
+// battery charge level lookup table
+const float vs[101] = {
+  3.200,  3.250,  3.300,  3.350,  3.400,  3.450,
+  3.500,  3.550,  3.600,  3.650,  3.700,  3.703,
+  3.706,  3.710,  3.713,  3.716,  3.719,  3.723,
+  3.726,  3.729,  3.732,  3.735,  3.739,  3.742,
+  3.745,  3.748,  3.752,  3.755,  3.758,  3.761,
+  3.765,  3.768,  3.771,  3.774,  3.777,  3.781,
+  3.784,  3.787,  3.790,  3.794,  3.797,  3.800,
+  3.805,  3.811,  3.816,  3.821,  3.826,  3.832,
+  3.837,  3.842,  3.847,  3.853,  3.858,  3.863,
+  3.868,  3.874,  3.879,  3.884,  3.889,  3.895,
+  3.900,  3.906,  3.911,  3.917,  3.922,  3.928,
+  3.933,  3.939,  3.944,  3.950,  3.956,  3.961,
+  3.967,  3.972,  3.978,  3.983,  3.989,  3.994,
+  4.000,  4.008,  4.015,  4.023,  4.031,  4.038,
+  4.046,  4.054,  4.062,  4.069,  4.077,  4.085,
+  4.092,  4.100,  4.111,  4.122,  4.133,  4.144,
+  4.156,  4.167,  4.178,  4.189,  4.200};
+
 void setup() 
 {
   #ifdef DEBUG
     Serial.begin(115200);
     // wait for serial port connection
     while (!Serial);
+    debugMessage("battery voltage level testing",1);
+    debugMessage("-----------------------------",1);
   #endif 
-  debugMessage("battery voltage level testing",1);
-  debugMessage("-----------------------------",1);
 
   hardwareData.batteryVoltage = 0;  // 0 = no battery attached
+  hardwareData.batteryPercent = 0;
+  hardwareData.batteryTemperature = 0;
 
-  //lc.setAlarmVoltage(3.8);
-
-  //setup display
-  display.begin(0x3C, true); // Address 0x3C default
+  //display setup
+  display.begin(0x3C, true); // Default i2c address is 0x3C
   display.setTextSize(1);
   display.setTextColor(SH110X_WHITE);
   display.setRotation(1);
@@ -81,41 +99,47 @@ void loop()
   display.clearDisplay();
 
   // LC709203F data
-  batteryReadVoltage_i2c();
+  batteryRead_LC709();
   display.setCursor(0,0);
   display.println("LC709203F");
-  display.print(hardwareData.batteryVoltage, 2);
-  display.print("V, ");
-  display.print(hardwareData.batteryPercent,1);
-  display.print("%, ");
-  display.print(hardwareData.batteryTemp,1);
+  display.print(hardwareData.batteryVoltage, 3);
+  display.print("V,");
+  display.print(hardwareData.batteryPercent,2);
+  display.print("%,");
+  display.print(hardwareData.batteryTemperature,1);
   display.println("F");
 
+  // Visualization uses most accurate data from hardware monitor
+  screenHelperBatteryStatus((display.width()-xMargins-batteryBarWidth-3),(display.height()-yMargins-batteryBarHeight),batteryBarWidth, batteryBarHeight);
+
+  hardwareData.batteryTemperature = 0; // no other read routines capture battery temperature
+
   // Adafruit recommended read of analog pin
-  batteryReadVoltage_adafruit();
+  batteryReadVoltage_Adafruit(batteryReads);
+  hardwareData.batteryPercent = batteryGetChargeLevel(hardwareData.batteryVoltage);
   display.println();
   display.println("Adafruit");
-  display.print(hardwareData.batteryVoltage, 2);
+  display.print(hardwareData.batteryVoltage, 3);
   display.print("V, ");
-  display.print(hardwareData.batteryPercent,1);
+  display.print(hardwareData.batteryPercent);
   display.println("%");
 
-  // ESP32 optimized software read of analog pin
-  batteryReadVoltage_esp32();
-  display.println();
-  display.println("ESP32");
-  display.print(hardwareData.batteryVoltage, 2);
-  display.print("V,");
-  display.print(hardwareData.batteryPercent,1);
-  display.println("%");
-
-  screenHelperBatteryStatus((display.width()-xMargins-batteryBarWidth-3),(display.height()-yMargins-batteryBarHeight),batteryBarWidth, batteryBarHeight);
+  #if defined (ARDUINO_ADAFRUIT_FEATHER_ESP32_V2) // ESP32 optimized software read of analog pin
+    batteryReadVoltage_esp32(batteryReads);
+    hardwareData.batteryPercent = batteryGetChargeLevel(hardwareData.batteryVoltage);
+    display.println();
+    display.println("ESP32");
+    display.print(hardwareData.batteryVoltage, 3);
+    display.print("V,");
+    display.print(hardwareData.batteryPercent);
+    display.println("%");
+  #endif
 
   display.display();
   delay(1000*60);  // LC709203F needs >=2 seconds between samples
 }
 
-void batteryReadVoltage_i2c() 
+void batteryRead_LC709() 
 {
   if (lc.begin())
   // Check battery monitoring status
@@ -127,51 +151,65 @@ void batteryReadVoltage_i2c()
 
     hardwareData.batteryPercent = lc.cellPercent();
     hardwareData.batteryVoltage = lc.cellVoltage();
-    hardwareData.batteryTemp = 32 + (1.8* lc.getCellTemperature());
-  } 
+    hardwareData.batteryTemperature = 32 + (1.8* lc.getCellTemperature());
+  }
+  else {
+    debugMessage("Couldn't find LC709203F. Make sure hardware and battery are plugged in",1);
+  }
   if (hardwareData.batteryVoltage!=0) 
   {
-    debugMessage(String("LC709203F battery voltage=") + hardwareData.batteryVoltage + "v, percent=" + hardwareData.batteryPercent + "%, temp=" + hardwareData.batteryTemp +"F",1);    
+    debugMessage(String("LC709203F battery voltage=") + hardwareData.batteryVoltage + "v, percent=" + hardwareData.batteryPercent + "%, temp=" + hardwareData.batteryTemperature +"F",1);    
   }
 }
 
-void batteryReadVoltage_esp32() 
+void batteryReadVoltage_esp32(int reads) 
 {
   pinMode(VBATPIN,INPUT);
-  // assumes default ESP32 analogReadResolution (4095)
-  // the 1.05 is a fudge factor original author used to align reading with multimeter
-  hardwareData.batteryVoltage = ((float)analogRead(VBATPIN) / 4095) * 3.3 * 2 * 1.05;
-  hardwareData.batteryPercent = (uint8_t)(((hardwareData.batteryVoltage - batteryMinVoltage) / (batteryMaxVoltage - batteryMinVoltage)) * 100);
-  hardwareData.batteryTemp = 0;
+  float accumulatedVoltage = 0;
+    for (int loop = 0; loop < reads; loop++)
+    {
+      accumulatedVoltage += analogRead(VBATPIN);
+    }
+  hardwareData.batteryVoltage = accumulatedVoltage/reads; // we now have the average reading
+  hardwareData.batteryVoltage *= 2;     // we divided by 2, so multiply back
+  hardwareData.batteryVoltage *= 3.3;   // Multiply by 3.3V, our reference voltage
+  hardwareData.batteryVoltage *= 1.05;  // the 1.05 is a fudge factor original author used to align reading with multimeter
+  hardwareData.batteryVoltage /= 4095;  // assumes default ESP32 analogReadResolution (4095)
   if (hardwareData.batteryVoltage!=0) 
   {
-    debugMessage(String("Battery voltage from ESP32 routines: ") + hardwareData.batteryVoltage + "v, percent: " + hardwareData.batteryPercent + "%",1);
+    debugMessage(String("Battery voltage from ESP32 optimized routine: ") + hardwareData.batteryVoltage + "v, percent: " + hardwareData.batteryPercent + "%",1);
   }
 }
 
-void batteryReadVoltage_adafruit()
+void batteryReadVoltage_Adafruit(int reads)
 {
+  float accumulatedVoltage = 0;
   #if defined (ARDUINO_ADAFRUIT_FEATHER_ESP32_V2)
-    // Adafruit power management guide for Adafruit ESP32V2
-    hardwareData.batteryVoltage = analogReadMilliVolts(VBATPIN);
+    // modified from the Adafruit power management guide for Adafruit ESP32V2
+    for (int loop = 0; loop < reads; loop++)
+      {
+        accumulatedVoltage += analogReadMilliVolts(VBATPIN);
+      }
+    hardwareData.batteryVoltage = accumulatedVoltage/reads; // we now have the average reading
+    // convert into volts  
     hardwareData.batteryVoltage *= 2;    // we divided by 2, so multiply back
     hardwareData.batteryVoltage /= 1000; // convert to volts!
-    hardwareData.batteryPercent = (uint8_t)(((hardwareData.batteryVoltage - batteryMinVoltage) / (batteryMaxVoltage - batteryMinVoltage)) * 100);
-    hardwareData.batteryTemp = 0;
   #else
-    // Adafruit power management guide for Adafruit Feather M0 Express ()
-    hardwareData.batteryVoltage = analogRead(VBATPIN);
+    // modified from the Adafruit power management guide for Adafruit Feather M0 Express
+    for (int loop = 0; loop < reads; loop++)
+      {
+        accumulatedVoltage += analogRead(VBATPIN);
+      }
+    hardwareData.batteryVoltage = accumulatedVoltage/reads; // we now have the average reading
     hardwareData.batteryVoltage *= 2;    // we divided by 2, so multiply back
     hardwareData.batteryVoltage *= 3.3;  // Multiply by 3.3V, our reference voltage
     hardwareData.batteryVoltage /= 1024; // convert to voltage
-    hardwareData.batteryPercent = (uint8_t)(((hardwareData.batteryVoltage - batteryMinVoltage) / (batteryMaxVoltage - batteryMinVoltage)) * 100);
   #endif
   if (hardwareData.batteryVoltage!=0) 
   {
-    debugMessage(String("Battery voltage from adafruit routine: ") + hardwareData.batteryVoltage + "v, percent: " + hardwareData.batteryPercent + "%",1);
+    debugMessage(String("Battery voltage from adafruit routine: ") + hardwareData.batteryVoltage + "v",1);
   }
 }
-
 
 void debugMessage(String messageText, int messageLevel)
 // wraps Serial.println as #define conditional
@@ -199,4 +237,31 @@ void screenHelperBatteryStatus(int initialX, int initialY, int barWidth, int bar
     display.fillRect((initialX + 2),(initialY + 2),(int((hardwareData.batteryPercent/100)*barWidth) - 4),(barHeight - 4),SH110X_WHITE);
     debugMessage(String("battery status drawn to screen as ") + hardwareData.batteryPercent + "%",2);
   }
+}
+
+int batteryGetChargeLevel(float volts)
+{
+  int idx = 50;
+  int prev = 0;
+  int half = 0;
+  if (volts >= 4.2){
+    return 100;
+  }
+  if (volts <= 3.2){
+    return 0;
+  }
+  while(true){
+    half = abs(idx - prev) / 2;
+    prev = idx;
+    if(volts >= vs[idx]){
+      idx = idx + half;
+    }else{
+      idx = idx - half;
+    }
+    if (prev == idx){
+      break;
+    }
+  }
+  debugMessage(String("Battery percentage as int is ")+idx+"%",1);
+  return idx;
 }
