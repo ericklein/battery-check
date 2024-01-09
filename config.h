@@ -1,6 +1,6 @@
 /*
   Project Name:   battery_check
-  Description:    Read and display voltage, percentage charge, and temperature for LiPo batteries
+  Description:    public (non-secret) configuration data
 
   See README.md for target information and revision history
 */
@@ -11,9 +11,9 @@
 
 // Configuration Step 2: Set delay between samples in seconds
 #ifdef DEBUG
-	#define SAMPLE_INTERVAL 5
+	const uint8_t batterySampleInterval = 5;
 #else
-	#define SAMPLE_INTERVAL 30
+	const uint8_t batterySampleInterval = 30;
 #endif
 
 // Configuration Step 3: Set battery parameters, if applicable
@@ -33,15 +33,16 @@
 const int pinReadsPerSample = 5;
 
 #if defined (ARDUINO_ADAFRUIT_FEATHER_ESP32_V2)
-	#define VBATPIN A13
+	#define BATTERY_VOLTAGE_PIN A13
 #else
 	// Adafruit Feather M0 Express
-	#define VBATPIN A7 // pin9
-	#define VUSBPIN A0 // pin14
+	#define BATTERY_VOLTAGE_PIN A7 // pin9
 #endif
 
+#define USB_VOLTAGE_PIN A0 // pin14
+
 // battery charge level lookup table
-const float voltageTable[101] = {
+const float batteryVoltageTable[101] = {
   3.200,  3.250,  3.300,  3.350,  3.400,  3.450,
   3.500,  3.550,  3.600,  3.650,  3.700,  3.703,
   3.706,  3.710,  3.713,  3.716,  3.719,  3.723,
