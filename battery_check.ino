@@ -20,8 +20,8 @@ Adafruit_SH1107 display = Adafruit_SH1107(64, 128, &Wire);
 
 // button support
 #include <ezButton.h>
-ezButton buttonOne(buttonAPin);
-ezButton buttonTwo(buttonBPin);
+ezButton buttonB(buttonBPin, INPUT_PULLUP);
+ezButton buttonC(buttonCPin, INPUT_PULLUP);
 
 // hardware status data
 typedef struct
@@ -54,8 +54,8 @@ void setup()
   display.setRotation(1);
   display.setTextWrap(false);
 
-  buttonOne.setDebounceTime(buttonDebounceDelay);
-  buttonTwo.setDebounceTime(buttonDebounceDelay);
+  buttonB.setDebounceTime(buttonDebounceDelay);
+  buttonC.setDebounceTime(buttonDebounceDelay);
 
   //First time draw
   screenUpdate();
@@ -63,12 +63,20 @@ void setup()
 
 void loop() 
 {
-  buttonOne.loop();
-  if (buttonOne.isReleased())
-    screenStats();
-  buttonTwo.loop();
-  if (buttonTwo.isReleased())
-    screenBatteryIcon();
+  buttonC.loop();
+  if (buttonC.isReleased())
+  {
+    screenCurrent = 1;
+    debugMessage(String("button A press, switch to screen ") + screenCurrent,1);
+    screenUpdate();
+  }
+  buttonB.loop();
+  if (buttonB.isReleased())
+  {
+    screenCurrent = 0;
+    debugMessage(String("button B press, switch to screen ") + screenCurrent,1);
+    screenUpdate();
+  }
 
   // is it time to update the current screen?
   if((millis() - timeLastBatterySample) >= (batterySampleInterval * 1000)) // converting sensorSampleInterval into milliseconds
@@ -101,6 +109,7 @@ void screenUpdate()
 
 void screenStats()
 {
+  debugMessage("screenStats start",1);
   display.clearDisplay();
 
   // Labels
@@ -134,13 +143,36 @@ void screenStats()
   display.print(hardwareData.batteryPercent,0);
 
   display.display();
+  debugMessage("screenStats end",1);
 }
 
 void screenBatteryIcon()
 {
   // Hardware battery data display
   // Display battery level icon, set via LC709203F
+  debugMessage("screenBatteryIcon start",1);
+
+  display.clearDisplay();
+
+  // Labels
+  display.setCursor(xHardwareMargin,yLabel);
+  display.println("Hdwe");
+  display.setCursor(xSoftwareMargin,yLabel);
+  display.println("GPIO");
+  display.setCursor(xLabelMargin,yBatteryVoltage);
+  display.print("Volt");
+  display.setCursor(xLabelMargin,yBatteryPercent);
+  display.print("USB V");
+
   screenHelperBatteryStatus(xHardwareMargin,(display.height()-yMargins-batteryBarHeight), batteryBarWidth, batteryBarHeight);
+  display.setCursor(xHardwareMargin,yBatteryVoltage);
+  display.print(hardwareData.batteryVoltage, 3);
+
+  display.setCursor(xSoftwareMargin,yBatteryPercent);
+  display.print(usbPinGetVoltage(batteryReadsPerSample));
+
+  display.display();
+  debugMessage("screenBatteryIcon end",1);
 }
 
 bool batteryReadLC709()

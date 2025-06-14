@@ -39,7 +39,7 @@ const uint8_t xHardwareMargin     = 40;
 const uint8_t xSoftwareMargin     = 90; 
 const uint8_t yLabel              = 10;
 const uint8_t yBatteryVoltage     = 22;
-const uint8_t yBatteryPercent     = 36;
+const uint8_t yBatteryPercent     = 35;
 const uint8_t yBatteryTempF       = 48;
 
 const uint8_t yMargins = 2;
@@ -49,7 +49,7 @@ const uint8_t batteryBarHeight    = 14;
 const uint8_t screenCount = 2;
 
 // Buttons
-const uint8_t buttonAPin = 9;
+const uint8_t buttonCPin = 5;
 const uint8_t buttonBPin = 6;
 const uint16_t buttonDebounceDelay = 50; // time in milliseconds to debounce button
 
