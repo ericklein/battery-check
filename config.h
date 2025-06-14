@@ -7,7 +7,7 @@
 
 // Configuration Step 1: Set debug message output
 // comment out to turn off; 1 = summary, 2 = verbose
-// #define DEBUG 1
+#define DEBUG 2
 
 // Configuration Step 2: Set delay between samples in seconds
 #ifdef DEBUG
@@ -16,8 +16,12 @@
 	const uint8_t batterySampleInterval = 30;
 #endif
 
-// Configuration Step 3: Set battery parameters, if applicable
+// Configuration Step 3: simulate battery,
+// returning random but plausible values
+// comment out to turn off
+// #define HARDWARE_SIMULATE
 
+// Configuration Step 4: Set battery parameters
 // If LC709203F detected on i2c, define battery pack based on settings curve from datasheet
 // #define BATTERY_APA 0x08 // 100mAH
 // #define BATTERY_APA 0x0B // 200mAH
@@ -29,17 +33,36 @@
 
 // Configuration variables unlikely to require changes
 
-// used for reading voltage from analog PINs on applicable devices
-const int pinReadsPerSample = 5;
+//screen assist constants
+const uint8_t xLabelMargin        = 5;
+const uint8_t xHardwareMargin     = 40;
+const uint8_t xSoftwareMargin     = 90; 
+const uint8_t yLabel              = 10;
+const uint8_t yBatteryVoltage     = 22;
+const uint8_t yBatteryPercent     = 36;
+const uint8_t yBatteryTempF       = 48;
 
-#if defined (ARDUINO_ADAFRUIT_FEATHER_ESP32_V2)
-	#define BATTERY_VOLTAGE_PIN A13
-#else
-	// Adafruit Feather M0 Express
-	#define BATTERY_VOLTAGE_PIN A7 // pin9
-#endif
+const uint8_t yMargins = 2;
+const uint8_t batteryBarWidth     = 28;
+const uint8_t batteryBarHeight    = 14;
 
-#define USB_VOLTAGE_PIN A0 // pin14
+const uint8_t screenCount = 2;
+
+// Buttons
+const uint8_t buttonAPin = 9;
+const uint8_t buttonBPin = 6;
+const uint16_t buttonDebounceDelay = 50; // time in milliseconds to debounce button
+
+// Battery 
+// analog pin used to reading battery voltage
+// #define BATTERY_VOLTAGE_PIN A13 // Adafruit Feather ESP32V2
+#define BATTERY_VOLTAGE_PIN A7 // Adafruit Feather M0 Express, pin 9
+// #define BATTERY_VOLTAGE_PIN 04 // Adafruit MagTag
+
+#define USB_VOLTAGE_PIN A0 // Adafruit Feather M0 Express, pin 14
+
+// number of analog pin reads sampled to average battery voltage
+const uint8_t   batteryReadsPerSample = 5;
 
 // battery charge level lookup table
 const float batteryVoltageTable[101] = {
@@ -59,4 +82,4 @@ const float batteryVoltageTable[101] = {
   4.000,  4.008,  4.015,  4.023,  4.031,  4.038,
   4.046,  4.054,  4.062,  4.069,  4.077,  4.085,
   4.092,  4.100,  4.111,  4.122,  4.133,  4.144,
-  4.156,  4.167,  4.178,  4.189,  4.200};
+  4.156,  4.167,  4.178,  4.189,  4.200 };
